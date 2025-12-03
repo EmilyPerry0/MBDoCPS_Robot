@@ -15,15 +15,17 @@ class Model:
 		"""
 		(
 			cautonomous_control,
-			cautonomous_control_r1start,
-			cautonomous_control_r1move_forward_one_block,
-			cautonomous_control_r1move_to_middle_of_tile,
+			cautonomous_control_r1decide_action,
 			cautonomous_control_r1special_left_turn,
 			cautonomous_control_r1special_right_turn,
 			cautonomous_control_r1turned_left,
 			cautonomous_control_r1turned_right,
 			cautonomous_control_r1stop_turn_left,
 			cautonomous_control_r1stop_turn_right,
+			cautonomous_control_r1initial_calibration_check,
+			cautonomous_control_r1initial_calibration,
+			cautonomous_control_r1move_forward_one_block,
+			cautonomous_control_r1turn_around,
 			cmanual_control,
 			cmanual_control_r1stop,
 			cmanual_control_r1wait_for_command,
@@ -32,7 +34,7 @@ class Model:
 			cmanual_control_r1increase_right_turn_speed,
 			cmanual_control_r1decrease_speed,
 			null_state
-		) = range(18)
+		) = range(20)
 	
 	
 	class UserVar:
@@ -46,6 +48,7 @@ class Model:
 			self.startprocedure = None
 			self.orig_y = None
 			self.orig_x = None
+			self.first_run = None
 			
 			self.statemachine = statemachine
 		
@@ -313,6 +316,7 @@ class Model:
 		self.user_var.startprocedure = True
 		self.user_var.orig_y = 0.0
 		self.user_var.orig_x = 0.0
+		self.user_var.first_run = True
 		self.base_values.max_speed = 0.22
 		self.base_values.max_rotation = 2.84
 		self.base_values.degrees_front = 10
@@ -414,13 +418,9 @@ class Model:
 		s = state
 		if s == self.__State.cautonomous_control:
 			return (self.__state_vector[0] >= self.__State.cautonomous_control)\
-				and (self.__state_vector[0] <= self.__State.cautonomous_control_r1stop_turn_right)
-		if s == self.__State.cautonomous_control_r1start:
-			return self.__state_vector[0] == self.__State.cautonomous_control_r1start
-		if s == self.__State.cautonomous_control_r1move_forward_one_block:
-			return self.__state_vector[0] == self.__State.cautonomous_control_r1move_forward_one_block
-		if s == self.__State.cautonomous_control_r1move_to_middle_of_tile:
-			return self.__state_vector[0] == self.__State.cautonomous_control_r1move_to_middle_of_tile
+				and (self.__state_vector[0] <= self.__State.cautonomous_control_r1turn_around)
+		if s == self.__State.cautonomous_control_r1decide_action:
+			return self.__state_vector[0] == self.__State.cautonomous_control_r1decide_action
 		if s == self.__State.cautonomous_control_r1special_left_turn:
 			return self.__state_vector[0] == self.__State.cautonomous_control_r1special_left_turn
 		if s == self.__State.cautonomous_control_r1special_right_turn:
@@ -433,6 +433,14 @@ class Model:
 			return self.__state_vector[0] == self.__State.cautonomous_control_r1stop_turn_left
 		if s == self.__State.cautonomous_control_r1stop_turn_right:
 			return self.__state_vector[0] == self.__State.cautonomous_control_r1stop_turn_right
+		if s == self.__State.cautonomous_control_r1initial_calibration_check:
+			return self.__state_vector[0] == self.__State.cautonomous_control_r1initial_calibration_check
+		if s == self.__State.cautonomous_control_r1initial_calibration:
+			return self.__state_vector[0] == self.__State.cautonomous_control_r1initial_calibration
+		if s == self.__State.cautonomous_control_r1move_forward_one_block:
+			return self.__state_vector[0] == self.__State.cautonomous_control_r1move_forward_one_block
+		if s == self.__State.cautonomous_control_r1turn_around:
+			return self.__state_vector[0] == self.__State.cautonomous_control_r1turn_around
 		if s == self.__State.cmanual_control:
 			return (self.__state_vector[0] >= self.__State.cmanual_control)\
 				and (self.__state_vector[0] <= self.__State.cmanual_control_r1decrease_speed)
@@ -458,26 +466,11 @@ class Model:
 			return self.in_event_queue.get()
 		return None
 	
-	def __entry_action_c_autonomous_control_r1_start(self):
-		"""Entry action for state 'Start'..
+	def __entry_action_c_autonomous_control_r1_decide_action(self):
+		"""Entry action for state 'Decide_Action'..
 		"""
-		#Entry action for state 'Start'.
+		#Entry action for state 'Decide_Action'.
 		self.output.speed = self.user_var.base_speed
-		
-	def __entry_action_c_autonomous_control_r1_move_forward_one_block(self):
-		"""Entry action for state 'Move_Forward_One_Block'..
-		"""
-		#Entry action for state 'Move_Forward_One_Block'.
-		self.user_var.orig_x = self.odom.x
-		self.user_var.orig_y = self.odom.y
-		self.output.speed = self.user_var.base_speed
-		
-	def __entry_action_c_autonomous_control_r1_move_to_middle_of_tile(self):
-		"""Entry action for state 'Move_To_Middle_Of_Tile'..
-		"""
-		#Entry action for state 'Move_To_Middle_Of_Tile'.
-		self.user_var.orig_x = self.odom.x
-		self.user_var.orig_y = self.odom.y
 		
 	def __entry_action_c_autonomous_control_r1_turned_left(self):
 		""".
@@ -510,6 +503,29 @@ class Model:
 		self.output.speed = 0.0
 		self.output.rotation = (self.user_var.base_rotation * -(1))
 		self.user_var.orig_rotation_angle = self.imu.yaw
+		
+	def __entry_action_c_autonomous_control_r1_initial_calibration(self):
+		""".
+		"""
+		#Entry action for state 'Initial_Calibration'.
+		self.start_pos.zero_x = self.odom.x
+		self.start_pos.zero_y = self.odom.y
+		self.start_pos.zero_south_degree = self.imu.yaw
+		self.start_pos.set_zero = True
+		self.__completed = True
+		
+	def __entry_action_c_autonomous_control_r1_move_forward_one_block(self):
+		"""Entry action for state 'Move_Forward_One_Block'..
+		"""
+		#Entry action for state 'Move_Forward_One_Block'.
+		self.user_var.orig_x = self.odom.x
+		self.user_var.orig_y = self.odom.y
+		self.output.speed = self.user_var.base_speed
+		
+	def __entry_action_c_autonomous_control_r1_turn_around(self):
+		""".
+		"""
+		self.__completed = True
 		
 	def __entry_action_c_manual_control_r1_stop(self):
 		""".
@@ -553,20 +569,12 @@ class Model:
 		#'default' enter sequence for state Autonomous_Control
 		self.__enter_sequence_c_autonomous_control_r1_default()
 		
-	def __enter_sequence_c_autonomous_control_r1_start_default(self):
-		"""'default' enter sequence for state Start.
+	def __enter_sequence_c_autonomous_control_r1_decide_action_default(self):
+		"""'default' enter sequence for state Decide_Action.
 		"""
-		#'default' enter sequence for state Start
-		self.__entry_action_c_autonomous_control_r1_start()
-		self.__state_vector[0] = self.State.cautonomous_control_r1start
-		self.__state_conf_vector_changed = True
-		
-	def __enter_sequence_c_autonomous_control_r1_move_to_middle_of_tile_default(self):
-		"""'default' enter sequence for state Move_To_Middle_Of_Tile.
-		"""
-		#'default' enter sequence for state Move_To_Middle_Of_Tile
-		self.__entry_action_c_autonomous_control_r1_move_to_middle_of_tile()
-		self.__state_vector[0] = self.State.cautonomous_control_r1move_to_middle_of_tile
+		#'default' enter sequence for state Decide_Action
+		self.__entry_action_c_autonomous_control_r1_decide_action()
+		self.__state_vector[0] = self.State.cautonomous_control_r1decide_action
 		self.__state_conf_vector_changed = True
 		
 	def __enter_sequence_c_autonomous_control_r1_special_left_turn_default(self):
@@ -613,6 +621,37 @@ class Model:
 		#'default' enter sequence for state Stop_Turn_Right
 		self.__entry_action_c_autonomous_control_r1_stop_turn_right()
 		self.__state_vector[0] = self.State.cautonomous_control_r1stop_turn_right
+		self.__state_conf_vector_changed = True
+		
+	def __enter_sequence_c_autonomous_control_r1_initial_calibration_check_default(self):
+		"""'default' enter sequence for state Initial_Calibration_Check.
+		"""
+		#'default' enter sequence for state Initial_Calibration_Check
+		self.__state_vector[0] = self.State.cautonomous_control_r1initial_calibration_check
+		self.__state_conf_vector_changed = True
+		
+	def __enter_sequence_c_autonomous_control_r1_initial_calibration_default(self):
+		"""'default' enter sequence for state Initial_Calibration.
+		"""
+		#'default' enter sequence for state Initial_Calibration
+		self.__entry_action_c_autonomous_control_r1_initial_calibration()
+		self.__state_vector[0] = self.State.cautonomous_control_r1initial_calibration
+		self.__state_conf_vector_changed = True
+		
+	def __enter_sequence_c_autonomous_control_r1_move_forward_one_block_default(self):
+		"""'default' enter sequence for state Move_Forward_One_Block.
+		"""
+		#'default' enter sequence for state Move_Forward_One_Block
+		self.__entry_action_c_autonomous_control_r1_move_forward_one_block()
+		self.__state_vector[0] = self.State.cautonomous_control_r1move_forward_one_block
+		self.__state_conf_vector_changed = True
+		
+	def __enter_sequence_c_autonomous_control_r1_turn_around_default(self):
+		"""'default' enter sequence for state Turn_Around.
+		"""
+		#'default' enter sequence for state Turn_Around
+		self.__entry_action_c_autonomous_control_r1_turn_around()
+		self.__state_vector[0] = self.State.cautonomous_control_r1turn_around
 		self.__state_conf_vector_changed = True
 		
 	def __enter_sequence_c_manual_control_default(self):
@@ -693,22 +732,10 @@ class Model:
 		self.__exit_sequence_c_autonomous_control_r1()
 		self.__state_vector[0] = self.State.null_state
 		
-	def __exit_sequence_c_autonomous_control_r1_start(self):
-		"""Default exit sequence for state Start.
+	def __exit_sequence_c_autonomous_control_r1_decide_action(self):
+		"""Default exit sequence for state Decide_Action.
 		"""
-		#Default exit sequence for state Start
-		self.__state_vector[0] = self.State.cautonomous_control
-		
-	def __exit_sequence_c_autonomous_control_r1_move_forward_one_block(self):
-		"""Default exit sequence for state Move_Forward_One_Block.
-		"""
-		#Default exit sequence for state Move_Forward_One_Block
-		self.__state_vector[0] = self.State.cautonomous_control
-		
-	def __exit_sequence_c_autonomous_control_r1_move_to_middle_of_tile(self):
-		"""Default exit sequence for state Move_To_Middle_Of_Tile.
-		"""
-		#Default exit sequence for state Move_To_Middle_Of_Tile
+		#Default exit sequence for state Decide_Action
 		self.__state_vector[0] = self.State.cautonomous_control
 		
 	def __exit_sequence_c_autonomous_control_r1_special_left_turn(self):
@@ -745,6 +772,30 @@ class Model:
 		"""Default exit sequence for state Stop_Turn_Right.
 		"""
 		#Default exit sequence for state Stop_Turn_Right
+		self.__state_vector[0] = self.State.cautonomous_control
+		
+	def __exit_sequence_c_autonomous_control_r1_initial_calibration_check(self):
+		"""Default exit sequence for state Initial_Calibration_Check.
+		"""
+		#Default exit sequence for state Initial_Calibration_Check
+		self.__state_vector[0] = self.State.cautonomous_control
+		
+	def __exit_sequence_c_autonomous_control_r1_initial_calibration(self):
+		"""Default exit sequence for state Initial_Calibration.
+		"""
+		#Default exit sequence for state Initial_Calibration
+		self.__state_vector[0] = self.State.cautonomous_control
+		
+	def __exit_sequence_c_autonomous_control_r1_move_forward_one_block(self):
+		"""Default exit sequence for state Move_Forward_One_Block.
+		"""
+		#Default exit sequence for state Move_Forward_One_Block
+		self.__state_vector[0] = self.State.cautonomous_control
+		
+	def __exit_sequence_c_autonomous_control_r1_turn_around(self):
+		"""Default exit sequence for state Turn_Around.
+		"""
+		#Default exit sequence for state Turn_Around
 		self.__state_vector[0] = self.State.cautonomous_control
 		
 	def __exit_sequence_c_manual_control(self):
@@ -797,12 +848,8 @@ class Model:
 		state = self.__state_vector[0]
 		if state == self.State.cautonomous_control:
 			self.__exit_sequence_c_autonomous_control()
-		elif state == self.State.cautonomous_control_r1start:
-			self.__exit_sequence_c_autonomous_control_r1_start()
-		elif state == self.State.cautonomous_control_r1move_forward_one_block:
-			self.__exit_sequence_c_autonomous_control_r1_move_forward_one_block()
-		elif state == self.State.cautonomous_control_r1move_to_middle_of_tile:
-			self.__exit_sequence_c_autonomous_control_r1_move_to_middle_of_tile()
+		elif state == self.State.cautonomous_control_r1decide_action:
+			self.__exit_sequence_c_autonomous_control_r1_decide_action()
 		elif state == self.State.cautonomous_control_r1special_left_turn:
 			self.__exit_sequence_c_autonomous_control_r1_special_left_turn()
 		elif state == self.State.cautonomous_control_r1special_right_turn:
@@ -815,6 +862,14 @@ class Model:
 			self.__exit_sequence_c_autonomous_control_r1_stop_turn_left()
 		elif state == self.State.cautonomous_control_r1stop_turn_right:
 			self.__exit_sequence_c_autonomous_control_r1_stop_turn_right()
+		elif state == self.State.cautonomous_control_r1initial_calibration_check:
+			self.__exit_sequence_c_autonomous_control_r1_initial_calibration_check()
+		elif state == self.State.cautonomous_control_r1initial_calibration:
+			self.__exit_sequence_c_autonomous_control_r1_initial_calibration()
+		elif state == self.State.cautonomous_control_r1move_forward_one_block:
+			self.__exit_sequence_c_autonomous_control_r1_move_forward_one_block()
+		elif state == self.State.cautonomous_control_r1turn_around:
+			self.__exit_sequence_c_autonomous_control_r1_turn_around()
 		elif state == self.State.cmanual_control:
 			self.__exit_sequence_c_manual_control()
 		elif state == self.State.cmanual_control_r1stop:
@@ -835,12 +890,8 @@ class Model:
 		"""
 		#Default exit sequence for region r1
 		state = self.__state_vector[0]
-		if state == self.State.cautonomous_control_r1start:
-			self.__exit_sequence_c_autonomous_control_r1_start()
-		elif state == self.State.cautonomous_control_r1move_forward_one_block:
-			self.__exit_sequence_c_autonomous_control_r1_move_forward_one_block()
-		elif state == self.State.cautonomous_control_r1move_to_middle_of_tile:
-			self.__exit_sequence_c_autonomous_control_r1_move_to_middle_of_tile()
+		if state == self.State.cautonomous_control_r1decide_action:
+			self.__exit_sequence_c_autonomous_control_r1_decide_action()
 		elif state == self.State.cautonomous_control_r1special_left_turn:
 			self.__exit_sequence_c_autonomous_control_r1_special_left_turn()
 		elif state == self.State.cautonomous_control_r1special_right_turn:
@@ -853,6 +904,14 @@ class Model:
 			self.__exit_sequence_c_autonomous_control_r1_stop_turn_left()
 		elif state == self.State.cautonomous_control_r1stop_turn_right:
 			self.__exit_sequence_c_autonomous_control_r1_stop_turn_right()
+		elif state == self.State.cautonomous_control_r1initial_calibration_check:
+			self.__exit_sequence_c_autonomous_control_r1_initial_calibration_check()
+		elif state == self.State.cautonomous_control_r1initial_calibration:
+			self.__exit_sequence_c_autonomous_control_r1_initial_calibration()
+		elif state == self.State.cautonomous_control_r1move_forward_one_block:
+			self.__exit_sequence_c_autonomous_control_r1_move_forward_one_block()
+		elif state == self.State.cautonomous_control_r1turn_around:
+			self.__exit_sequence_c_autonomous_control_r1_turn_around()
 		
 	def __exit_sequence_c_manual_control_r1(self):
 		"""Default exit sequence for region r1.
@@ -876,7 +935,7 @@ class Model:
 		"""Default react sequence for initial entry .
 		"""
 		#Default react sequence for initial entry 
-		self.__enter_sequence_c_autonomous_control_r1_start_default()
+		self.__enter_sequence_c_autonomous_control_r1_initial_calibration_check_default()
 		
 	def __react_c_manual_control_r1__entry_default(self):
 		"""Default react sequence for initial entry .
@@ -908,59 +967,31 @@ class Model:
 		return transitioned_after
 	
 	
-	def __c_autonomous_control_r1_start_react(self, transitioned_before):
-		"""Implementation of __c_autonomous_control_r1_start_react function.
+	def __c_autonomous_control_r1_decide_action_react(self, transitioned_before):
+		"""Implementation of __c_autonomous_control_r1_decide_action_react function.
 		"""
-		#The reactions of state Start.
+		#The reactions of state Decide_Action.
 		transitioned_after = transitioned_before
 		if not self.__do_completion:
 			if transitioned_after < 0:
-				if self.laser_distance.dm90 > 0.5:
-					self.__exit_sequence_c_autonomous_control_r1_start()
-					self.__enter_sequence_c_autonomous_control_r1_move_to_middle_of_tile_default()
+				if self.laser_distance.d0 <= 0.5 and self.laser_distance.d90 < 0.3 and self.laser_distance.dm90 > 0.4:
+					self.__exit_sequence_c_autonomous_control_r1_decide_action()
+					self.__enter_sequence_c_autonomous_control_r1_stop_turn_right_default()
 					self.__c_autonomous_control_react(0)
 					transitioned_after = 0
-				elif self.laser_distance.d0 < 0.3 and self.laser_distance.dm90 <= 0.5:
-					self.__exit_sequence_c_autonomous_control_r1_start()
+				elif self.laser_distance.d90 > 0.4:
+					self.__exit_sequence_c_autonomous_control_r1_decide_action()
 					self.__enter_sequence_c_autonomous_control_r1_stop_turn_left_default()
 					self.__c_autonomous_control_react(0)
 					transitioned_after = 0
-			#If no transition was taken
-			if transitioned_after == transitioned_before:
-				#then execute local reactions.
-				transitioned_after = self.__c_autonomous_control_react(transitioned_before)
-		return transitioned_after
-	
-	
-	def __c_autonomous_control_r1_move_forward_one_block_react(self, transitioned_before):
-		"""Implementation of __c_autonomous_control_r1_move_forward_one_block_react function.
-		"""
-		#The reactions of state Move_Forward_One_Block.
-		transitioned_after = transitioned_before
-		if not self.__do_completion:
-			if transitioned_after < 0:
-				if ((self.odom.x - self.user_var.orig_x)) > 0.3 or ((self.odom.x - self.user_var.orig_x)) < -(0.3) or ((self.odom.y - self.user_var.orig_y)) < -(0.3) or ((self.odom.y - self.user_var.orig_y)) > 0.3:
-					self.__exit_sequence_c_autonomous_control_r1_move_forward_one_block()
-					self.__enter_sequence_c_autonomous_control_r1_start_default()
+				elif self.laser_distance.d0 > 0.5 and self.laser_distance.d90 <= 0.4:
+					self.__exit_sequence_c_autonomous_control_r1_decide_action()
+					self.__enter_sequence_c_autonomous_control_r1_move_forward_one_block_default()
 					self.__c_autonomous_control_react(0)
 					transitioned_after = 0
-			#If no transition was taken
-			if transitioned_after == transitioned_before:
-				#then execute local reactions.
-				transitioned_after = self.__c_autonomous_control_react(transitioned_before)
-		return transitioned_after
-	
-	
-	def __c_autonomous_control_r1_move_to_middle_of_tile_react(self, transitioned_before):
-		"""Implementation of __c_autonomous_control_r1_move_to_middle_of_tile_react function.
-		"""
-		#The reactions of state Move_To_Middle_Of_Tile.
-		transitioned_after = transitioned_before
-		if not self.__do_completion:
-			if transitioned_after < 0:
-				if ((self.odom.x - self.user_var.orig_x)) > 0.25 or ((self.odom.x - self.user_var.orig_x)) < -(0.25) or ((self.odom.y - self.user_var.orig_y)) < -(0.25) or ((self.odom.y - self.user_var.orig_y)) > 0.25:
-					self.__exit_sequence_c_autonomous_control_r1_move_to_middle_of_tile()
-					self.__enter_sequence_c_autonomous_control_r1_stop_turn_right_default()
+				elif self.laser_distance.d0 <= 0.5 and self.laser_distance.d90 <= 0.4 and self.laser_distance.dm90 <= 0.4:
+					self.__exit_sequence_c_autonomous_control_r1_decide_action()
+					self.__enter_sequence_c_autonomous_control_r1_turn_around_default()
 					self.__c_autonomous_control_react(0)
 					transitioned_after = 0
 			#If no transition was taken
@@ -1016,9 +1047,9 @@ class Model:
 		if self.__do_completion:
 			#Default exit sequence for state Turned_Left
 			self.__state_vector[0] = self.State.cautonomous_control
-			#'default' enter sequence for state Start
-			self.__entry_action_c_autonomous_control_r1_start()
-			self.__state_vector[0] = self.State.cautonomous_control_r1start
+			#'default' enter sequence for state Move_Forward_One_Block
+			self.__entry_action_c_autonomous_control_r1_move_forward_one_block()
+			self.__state_vector[0] = self.State.cautonomous_control_r1move_forward_one_block
 			self.__state_conf_vector_changed = True
 			self.__c_autonomous_control_react(0)
 		else:
@@ -1091,6 +1122,87 @@ class Model:
 			if transitioned_after == transitioned_before:
 				#then execute local reactions.
 				transitioned_after = self.__c_autonomous_control_react(transitioned_before)
+		return transitioned_after
+	
+	
+	def __c_autonomous_control_r1_initial_calibration_check_react(self, transitioned_before):
+		"""Implementation of __c_autonomous_control_r1_initial_calibration_check_react function.
+		"""
+		#The reactions of state Initial_Calibration_Check.
+		transitioned_after = transitioned_before
+		if not self.__do_completion:
+			if transitioned_after < 0:
+				if not self.start_pos.set_zero:
+					self.__exit_sequence_c_autonomous_control_r1_initial_calibration_check()
+					self.__enter_sequence_c_autonomous_control_r1_initial_calibration_default()
+					self.__c_autonomous_control_react(0)
+					transitioned_after = 0
+				elif self.start_pos.set_zero:
+					self.__exit_sequence_c_autonomous_control_r1_initial_calibration_check()
+					self.__enter_sequence_c_autonomous_control_r1_decide_action_default()
+					self.__c_autonomous_control_react(0)
+					transitioned_after = 0
+			#If no transition was taken
+			if transitioned_after == transitioned_before:
+				#then execute local reactions.
+				transitioned_after = self.__c_autonomous_control_react(transitioned_before)
+		return transitioned_after
+	
+	
+	def __c_autonomous_control_r1_initial_calibration_react(self, transitioned_before):
+		"""Implementation of __c_autonomous_control_r1_initial_calibration_react function.
+		"""
+		#The reactions of state Initial_Calibration.
+		transitioned_after = transitioned_before
+		if self.__do_completion:
+			#Default exit sequence for state Initial_Calibration
+			self.__state_vector[0] = self.State.cautonomous_control
+			#'default' enter sequence for state Decide_Action
+			self.__entry_action_c_autonomous_control_r1_decide_action()
+			self.__state_vector[0] = self.State.cautonomous_control_r1decide_action
+			self.__state_conf_vector_changed = True
+			self.__c_autonomous_control_react(0)
+		else:
+			#Always execute local reactions.
+			transitioned_after = self.__c_autonomous_control_react(transitioned_before)
+		return transitioned_after
+	
+	
+	def __c_autonomous_control_r1_move_forward_one_block_react(self, transitioned_before):
+		"""Implementation of __c_autonomous_control_r1_move_forward_one_block_react function.
+		"""
+		#The reactions of state Move_Forward_One_Block.
+		transitioned_after = transitioned_before
+		if not self.__do_completion:
+			if transitioned_after < 0:
+				if ((self.odom.x - self.user_var.orig_x)) > 0.5 or ((self.odom.x - self.user_var.orig_x)) < -(0.5) or ((self.odom.y - self.user_var.orig_y)) < -(0.5) or ((self.odom.y - self.user_var.orig_y)) > 0.5 or self.laser_distance.d0 < 0.24:
+					self.__exit_sequence_c_autonomous_control_r1_move_forward_one_block()
+					self.__enter_sequence_c_autonomous_control_r1_decide_action_default()
+					self.__c_autonomous_control_react(0)
+					transitioned_after = 0
+			#If no transition was taken
+			if transitioned_after == transitioned_before:
+				#then execute local reactions.
+				transitioned_after = self.__c_autonomous_control_react(transitioned_before)
+		return transitioned_after
+	
+	
+	def __c_autonomous_control_r1_turn_around_react(self, transitioned_before):
+		"""Implementation of __c_autonomous_control_r1_turn_around_react function.
+		"""
+		#The reactions of state Turn_Around.
+		transitioned_after = transitioned_before
+		if self.__do_completion:
+			#Default exit sequence for state Turn_Around
+			self.__state_vector[0] = self.State.cautonomous_control
+			#'default' enter sequence for state Move_Forward_One_Block
+			self.__entry_action_c_autonomous_control_r1_move_forward_one_block()
+			self.__state_vector[0] = self.State.cautonomous_control_r1move_forward_one_block
+			self.__state_conf_vector_changed = True
+			self.__c_autonomous_control_react(0)
+		else:
+			#Always execute local reactions.
+			transitioned_after = self.__c_autonomous_control_react(transitioned_before)
 		return transitioned_after
 	
 	
@@ -1256,12 +1368,8 @@ class Model:
 		"""Implementation of __micro_step function.
 		"""
 		state = self.__state_vector[0]
-		if state == self.State.cautonomous_control_r1start:
-			self.__c_autonomous_control_r1_start_react(-1)
-		elif state == self.State.cautonomous_control_r1move_forward_one_block:
-			self.__c_autonomous_control_r1_move_forward_one_block_react(-1)
-		elif state == self.State.cautonomous_control_r1move_to_middle_of_tile:
-			self.__c_autonomous_control_r1_move_to_middle_of_tile_react(-1)
+		if state == self.State.cautonomous_control_r1decide_action:
+			self.__c_autonomous_control_r1_decide_action_react(-1)
 		elif state == self.State.cautonomous_control_r1special_left_turn:
 			self.__c_autonomous_control_r1_special_left_turn_react(-1)
 		elif state == self.State.cautonomous_control_r1special_right_turn:
@@ -1274,6 +1382,14 @@ class Model:
 			self.__c_autonomous_control_r1_stop_turn_left_react(-1)
 		elif state == self.State.cautonomous_control_r1stop_turn_right:
 			self.__c_autonomous_control_r1_stop_turn_right_react(-1)
+		elif state == self.State.cautonomous_control_r1initial_calibration_check:
+			self.__c_autonomous_control_r1_initial_calibration_check_react(-1)
+		elif state == self.State.cautonomous_control_r1initial_calibration:
+			self.__c_autonomous_control_r1_initial_calibration_react(-1)
+		elif state == self.State.cautonomous_control_r1move_forward_one_block:
+			self.__c_autonomous_control_r1_move_forward_one_block_react(-1)
+		elif state == self.State.cautonomous_control_r1turn_around:
+			self.__c_autonomous_control_r1_turn_around_react(-1)
 		elif state == self.State.cmanual_control_r1stop:
 			self.__c_manual_control_r1_stop_react(-1)
 		elif state == self.State.cmanual_control_r1wait_for_command:
