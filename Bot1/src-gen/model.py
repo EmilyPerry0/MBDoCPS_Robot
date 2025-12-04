@@ -36,9 +36,11 @@ class Model:
 			cautonomous_main_auto_driving_check_for_correction,
 			cautonomous_main_auto_driving_move_forward_other_half_block,
 			cautonomous_main_auto_driving_wait_for_correction,
+			cautonomous_main_auto_driving_turn_option_1,
+			cautonomous_main_auto_driving_turn_option_2,
 			cautonomous_other_controls_extra_features,
 			cautonomous_other_controls_extra_features_wall_alignment_checking,
-			cautonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag,
+			cautonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag,
 			cautonomous_other_controls_extra_features_wall_alignment_too_close_on_right,
 			cautonomous_other_controls_extra_features_wall_alignment_too_close_on_left,
 			cautonomous_other_controls_extra_features_wall_alignment_stop_turn_right,
@@ -51,13 +53,14 @@ class Model:
 			cautonomous_other_controls_extra_features_wall_alignment_special_left_turn,
 			cautonomous_other_controls_extra_features_wall_alignment_center_in_cube_2,
 			cautonomous_other_controls_extra_features_wall_alignment_stop_turn_right,
+			cautonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag,
 			cautonomous_other_controls_extra_features_r2placeholder,
 			cwall_detection,
 			cwall_detection_r1stop,
 			cwall_detection_r1backup,
 			cwall_detection_r1stop_and_return,
 			null_state
-		) = range(43)
+		) = range(46)
 	
 	
 	class UserVar:
@@ -492,13 +495,17 @@ class Model:
 			return self.__state_vector[0] == self.__State.cautonomous_main_auto_driving_move_forward_other_half_block
 		if s == self.__State.cautonomous_main_auto_driving_wait_for_correction:
 			return self.__state_vector[0] == self.__State.cautonomous_main_auto_driving_wait_for_correction
+		if s == self.__State.cautonomous_main_auto_driving_turn_option_1:
+			return self.__state_vector[0] == self.__State.cautonomous_main_auto_driving_turn_option_1
+		if s == self.__State.cautonomous_main_auto_driving_turn_option_2:
+			return self.__state_vector[0] == self.__State.cautonomous_main_auto_driving_turn_option_2
 		if s == self.__State.cautonomous_other_controls_extra_features:
 			return (self.__state_vector[1] >= self.__State.cautonomous_other_controls_extra_features)\
 				and (self.__state_vector[1] <= self.__State.cautonomous_other_controls_extra_features_r2placeholder)
 		if s == self.__State.cautonomous_other_controls_extra_features_wall_alignment_checking:
 			return self.__state_vector[1] == self.__State.cautonomous_other_controls_extra_features_wall_alignment_checking
-		if s == self.__State.cautonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag:
-			return self.__state_vector[1] == self.__State.cautonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag
+		if s == self.__State.cautonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag:
+			return self.__state_vector[1] == self.__State.cautonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag
 		if s == self.__State.cautonomous_other_controls_extra_features_wall_alignment_too_close_on_right:
 			return self.__state_vector[1] == self.__State.cautonomous_other_controls_extra_features_wall_alignment_too_close_on_right
 		if s == self.__State.cautonomous_other_controls_extra_features_wall_alignment_too_close_on_left:
@@ -523,6 +530,8 @@ class Model:
 			return self.__state_vector[1] == self.__State.cautonomous_other_controls_extra_features_wall_alignment_center_in_cube_2
 		if s == self.__State.cautonomous_other_controls_extra_features_wall_alignment_stop_turn_right:
 			return self.__state_vector[1] == self.__State.cautonomous_other_controls_extra_features_wall_alignment_stop_turn_right
+		if s == self.__State.cautonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag:
+			return self.__state_vector[1] == self.__State.cautonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag
 		if s == self.__State.cautonomous_other_controls_extra_features_r2placeholder:
 			return self.__state_vector[2] == self.__State.cautonomous_other_controls_extra_features_r2placeholder
 		if s == self.__State.cwall_detection:
@@ -584,6 +593,7 @@ class Model:
 		"""Entry action for state 'Move_Forward_Half_Block'..
 		"""
 		#Entry action for state 'Move_Forward_Half_Block'.
+		self.output.rotation = 0.0
 		self.user_var.orig_x = self.odom.x
 		self.user_var.orig_y = self.odom.y
 		self.output.speed = (self.user_var.base_speed * 2)
@@ -629,9 +639,11 @@ class Model:
 		self.__completed = True
 		
 	def __entry_action_c_autonomous_main_auto_driving_turn_around(self):
-		""".
+		"""Entry action for state 'Turn_Around'..
 		"""
-		self.__completed = True
+		#Entry action for state 'Turn_Around'.
+		self.output.rotation = (self.user_var.base_rotation * 0.5)
+		self.user_var.orig_rotation_angle = self.imu.yaw
 		
 	def __entry_action_c_autonomous_main_auto_driving_turned_right(self):
 		""".
@@ -672,11 +684,12 @@ class Model:
 		self.user_var.correction_done = True
 		self.user_var.correction_go_ahead = False
 		
-	def __entry_action_c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag(self):
-		"""Entry action for state 'Wall_Alignment_Correction_Flag'..
+	def __entry_action_c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag(self):
+		"""Entry action for state 'Right_Wall_Alignment_Correction_Flag'..
 		"""
-		#Entry action for state 'Wall_Alignment_Correction_Flag'.
+		#Entry action for state 'Right_Wall_Alignment_Correction_Flag'.
 		self.user_var.should_correct = True
+		self.user_var.correction_done = False
 		
 	def __entry_action_c_autonomous_other_controls_extra_features_wall_alignment_too_close_on_right(self):
 		""".
@@ -740,6 +753,13 @@ class Model:
 		#Entry action for state 'Stop_turn_Right'.
 		self.output.speed = 0.0
 		self.output.rotation = (self.user_var.base_rotation * -(0.5))
+		
+	def __entry_action_c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag(self):
+		"""Entry action for state 'Left_Wall_Alignment_Correction_Flag'..
+		"""
+		#Entry action for state 'Left_Wall_Alignment_Correction_Flag'.
+		self.user_var.should_correct = True
+		self.user_var.correction_done = False
 		
 	def __entry_action_c_wall_detection_r1_stop(self):
 		""".
@@ -951,6 +971,22 @@ class Model:
 		self.__state_conf_vector_position = 0
 		self.__state_conf_vector_changed = True
 		
+	def __enter_sequence_c_autonomous_main_auto_driving_turn_option_1_default(self):
+		"""'default' enter sequence for state Turn_Option_1.
+		"""
+		#'default' enter sequence for state Turn_Option_1
+		self.__state_vector[0] = self.State.cautonomous_main_auto_driving_turn_option_1
+		self.__state_conf_vector_position = 0
+		self.__state_conf_vector_changed = True
+		
+	def __enter_sequence_c_autonomous_main_auto_driving_turn_option_2_default(self):
+		"""'default' enter sequence for state Turn_Option_2.
+		"""
+		#'default' enter sequence for state Turn_Option_2
+		self.__state_vector[0] = self.State.cautonomous_main_auto_driving_turn_option_2
+		self.__state_conf_vector_position = 0
+		self.__state_conf_vector_changed = True
+		
 	def __enter_sequence_c_autonomous_other_controls_extra_features_default(self):
 		"""'default' enter sequence for state extra_features.
 		"""
@@ -967,12 +1003,12 @@ class Model:
 		self.__state_conf_vector_position = 1
 		self.__state_conf_vector_changed = True
 		
-	def __enter_sequence_c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag_default(self):
-		"""'default' enter sequence for state Wall_Alignment_Correction_Flag.
+	def __enter_sequence_c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag_default(self):
+		"""'default' enter sequence for state Right_Wall_Alignment_Correction_Flag.
 		"""
-		#'default' enter sequence for state Wall_Alignment_Correction_Flag
-		self.__entry_action_c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag()
-		self.__state_vector[1] = self.State.cautonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag
+		#'default' enter sequence for state Right_Wall_Alignment_Correction_Flag
+		self.__entry_action_c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag()
+		self.__state_vector[1] = self.State.cautonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag
 		self.__state_conf_vector_position = 1
 		self.__state_conf_vector_changed = True
 		
@@ -1043,6 +1079,15 @@ class Model:
 		#'default' enter sequence for state Stop_turn_Right
 		self.__entry_action_c_autonomous_other_controls_extra_features_wall_alignment_entry_action_c_autonomous_other_controls_extra_features_wall_alignment_stop_turn_right()
 		self.__state_vector[1] = self.State.cautonomous_other_controls_extra_features_wall_alignment_stop_turn_right
+		self.__state_conf_vector_position = 1
+		self.__state_conf_vector_changed = True
+		
+	def __enter_sequence_c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag_default(self):
+		"""'default' enter sequence for state Left_Wall_Alignment_Correction_Flag.
+		"""
+		#'default' enter sequence for state Left_Wall_Alignment_Correction_Flag
+		self.__entry_action_c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag()
+		self.__state_vector[1] = self.State.cautonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag
 		self.__state_conf_vector_position = 1
 		self.__state_conf_vector_changed = True
 		
@@ -1279,6 +1324,20 @@ class Model:
 		self.__state_vector[0] = self.State.cautonomous
 		self.__state_conf_vector_position = 0
 		
+	def __exit_sequence_c_autonomous_main_auto_driving_turn_option_1(self):
+		"""Default exit sequence for state Turn_Option_1.
+		"""
+		#Default exit sequence for state Turn_Option_1
+		self.__state_vector[0] = self.State.cautonomous
+		self.__state_conf_vector_position = 0
+		
+	def __exit_sequence_c_autonomous_main_auto_driving_turn_option_2(self):
+		"""Default exit sequence for state Turn_Option_2.
+		"""
+		#Default exit sequence for state Turn_Option_2
+		self.__state_vector[0] = self.State.cautonomous
+		self.__state_conf_vector_position = 0
+		
 	def __exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_checking(self):
 		"""Default exit sequence for state Checking.
 		"""
@@ -1286,10 +1345,10 @@ class Model:
 		self.__state_vector[1] = self.State.cautonomous_other_controls_extra_features
 		self.__state_conf_vector_position = 1
 		
-	def __exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag(self):
-		"""Default exit sequence for state Wall_Alignment_Correction_Flag.
+	def __exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag(self):
+		"""Default exit sequence for state Right_Wall_Alignment_Correction_Flag.
 		"""
-		#Default exit sequence for state Wall_Alignment_Correction_Flag
+		#Default exit sequence for state Right_Wall_Alignment_Correction_Flag
 		self.__state_vector[1] = self.State.cautonomous_other_controls_extra_features
 		self.__state_conf_vector_position = 1
 		
@@ -1377,6 +1436,13 @@ class Model:
 		self.__state_vector[1] = self.State.cautonomous_other_controls_extra_features
 		self.__state_conf_vector_position = 1
 		
+	def __exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag(self):
+		"""Default exit sequence for state Left_Wall_Alignment_Correction_Flag.
+		"""
+		#Default exit sequence for state Left_Wall_Alignment_Correction_Flag
+		self.__state_vector[1] = self.State.cautonomous_other_controls_extra_features
+		self.__state_conf_vector_position = 1
+		
 	def __exit_sequence_c_autonomous_other_controls_extra_features_r2_placeholder(self):
 		"""Default exit sequence for state placeholder.
 		"""
@@ -1460,6 +1526,10 @@ class Model:
 			self.__exit_sequence_c_autonomous_main_auto_driving_move_forward_other_half_block()
 		elif state == self.State.cautonomous_main_auto_driving_wait_for_correction:
 			self.__exit_sequence_c_autonomous_main_auto_driving_wait_for_correction()
+		elif state == self.State.cautonomous_main_auto_driving_turn_option_1:
+			self.__exit_sequence_c_autonomous_main_auto_driving_turn_option_1()
+		elif state == self.State.cautonomous_main_auto_driving_turn_option_2:
+			self.__exit_sequence_c_autonomous_main_auto_driving_turn_option_2()
 		elif state == self.State.cwall_detection:
 			self.__exit_sequence_c_wall_detection()
 		elif state == self.State.cwall_detection_r1stop:
@@ -1471,8 +1541,8 @@ class Model:
 		state = self.__state_vector[1]
 		if state == self.State.cautonomous_other_controls_extra_features_wall_alignment_checking:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_checking()
-		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag:
-			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag()
+		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag:
+			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag()
 		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_too_close_on_right:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_too_close_on_right()
 		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_too_close_on_left:
@@ -1497,6 +1567,8 @@ class Model:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_center_in_cube_2()
 		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_stop_turn_right:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_stop_turn_right()
+		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag:
+			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag()
 		state = self.__state_vector[2]
 		if state == self.State.cautonomous_other_controls_extra_features_r2placeholder:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_r2_placeholder()
@@ -1552,6 +1624,10 @@ class Model:
 			self.__exit_sequence_c_autonomous_main_auto_driving_move_forward_other_half_block()
 		elif state == self.State.cautonomous_main_auto_driving_wait_for_correction:
 			self.__exit_sequence_c_autonomous_main_auto_driving_wait_for_correction()
+		elif state == self.State.cautonomous_main_auto_driving_turn_option_1:
+			self.__exit_sequence_c_autonomous_main_auto_driving_turn_option_1()
+		elif state == self.State.cautonomous_main_auto_driving_turn_option_2:
+			self.__exit_sequence_c_autonomous_main_auto_driving_turn_option_2()
 		
 	def __exit_sequence_c_autonomous_other_controls(self):
 		"""Default exit sequence for region other_controls.
@@ -1560,8 +1636,8 @@ class Model:
 		state = self.__state_vector[1]
 		if state == self.State.cautonomous_other_controls_extra_features_wall_alignment_checking:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_checking()
-		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag:
-			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag()
+		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag:
+			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag()
 		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_too_close_on_right:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_too_close_on_right()
 		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_too_close_on_left:
@@ -1586,6 +1662,8 @@ class Model:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_center_in_cube_2()
 		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_stop_turn_right:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_stop_turn_right()
+		elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag:
+			self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag()
 		state = self.__state_vector[2]
 		if state == self.State.cautonomous_other_controls_extra_features_r2placeholder:
 			self.__exit_sequence_c_autonomous_other_controls_extra_features_r2_placeholder()
@@ -1812,7 +1890,7 @@ class Model:
 					self.__exit_sequence_c_autonomous()
 					self.__enter_sequence_c_manual_control_default()
 					transitioned_after = 2
-				elif self.laser_distance.d0 < 0.19:
+				elif self.laser_distance.d0 <= 0.2 or self.laser_distance.d0 >= 3.8:
 					self.__exit_sequence_c_autonomous()
 					self.__enter_sequence_c_wall_detection_default()
 					transitioned_after = 2
@@ -1984,15 +2062,16 @@ class Model:
 		"""
 		#The reactions of state Turn_Around.
 		transitioned_after = transitioned_before
-		if self.__do_completion:
-			#Default exit sequence for state Turn_Around
-			self.__state_vector[0] = self.State.cautonomous
-			self.__state_conf_vector_position = 0
-			#'default' enter sequence for state Move_Forward_Half_Block
-			self.__entry_action_c_autonomous_main_auto_driving_move_forward_half_block()
-			self.__state_vector[0] = self.State.cautonomous_main_auto_driving_move_forward_half_block
-			self.__state_conf_vector_position = 0
-			self.__state_conf_vector_changed = True
+		if not self.__do_completion:
+			if transitioned_after < 0:
+				if self.user_var.orig_rotation_angle < 0.0:
+					self.__exit_sequence_c_autonomous_main_auto_driving_turn_around()
+					self.__enter_sequence_c_autonomous_main_auto_driving_turn_option_1_default()
+					transitioned_after = 0
+				elif self.user_var.orig_rotation_angle >= 0.0:
+					self.__exit_sequence_c_autonomous_main_auto_driving_turn_around()
+					self.__enter_sequence_c_autonomous_main_auto_driving_turn_option_2_default()
+					transitioned_after = 0
 		return transitioned_after
 	
 	
@@ -2059,6 +2138,34 @@ class Model:
 		return transitioned_after
 	
 	
+	def __c_autonomous_main_auto_driving_turn_option_1_react(self, transitioned_before):
+		"""Implementation of __c_autonomous_main_auto_driving_turn_option_1_react function.
+		"""
+		#The reactions of state Turn_Option_1.
+		transitioned_after = transitioned_before
+		if not self.__do_completion:
+			if transitioned_after < 0:
+				if self.imu.yaw < (self.user_var.orig_rotation_angle + 181.0) and self.imu.yaw > (self.user_var.orig_rotation_angle + 179.0):
+					self.__exit_sequence_c_autonomous_main_auto_driving_turn_option_1()
+					self.__enter_sequence_c_autonomous_main_auto_driving_move_forward_half_block_default()
+					transitioned_after = 0
+		return transitioned_after
+	
+	
+	def __c_autonomous_main_auto_driving_turn_option_2_react(self, transitioned_before):
+		"""Implementation of __c_autonomous_main_auto_driving_turn_option_2_react function.
+		"""
+		#The reactions of state Turn_Option_2.
+		transitioned_after = transitioned_before
+		if not self.__do_completion:
+			if transitioned_after < 0:
+				if self.imu.yaw > (self.user_var.orig_rotation_angle - 181.0) and self.imu.yaw < (self.user_var.orig_rotation_angle - 179.0):
+					self.__exit_sequence_c_autonomous_main_auto_driving_turn_option_2()
+					self.__enter_sequence_c_autonomous_main_auto_driving_move_forward_half_block_default()
+					transitioned_after = 0
+		return transitioned_after
+	
+	
 	def __c_autonomous_other_controls_extra_features_react(self, transitioned_before):
 		"""Implementation of __c_autonomous_other_controls_extra_features_react function.
 		"""
@@ -2077,27 +2184,27 @@ class Model:
 		transitioned_after = transitioned_before
 		if not self.__do_completion:
 			if transitioned_after < 1:
-				if self.laser_distance.d90 < 0.17 or self.laser_distance.dm90 < 0.17:
+				if self.laser_distance.dm90 <= 0.17 or self.laser_distance.dm90 >= 3.8:
 					self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_checking()
-					self.__enter_sequence_c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag_default()
+					self.__enter_sequence_c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag_default()
+					transitioned_after = 1
+				elif self.laser_distance.d90 <= 0.17 or self.laser_distance.d90 >= 3.8:
+					self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_checking()
+					self.__enter_sequence_c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag_default()
 					transitioned_after = 1
 		return transitioned_after
 	
 	
-	def __c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag_react(self, transitioned_before):
-		"""Implementation of __c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag_react function.
+	def __c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag_react(self, transitioned_before):
+		"""Implementation of __c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag_react function.
 		"""
-		#The reactions of state Wall_Alignment_Correction_Flag.
+		#The reactions of state Right_Wall_Alignment_Correction_Flag.
 		transitioned_after = transitioned_before
 		if not self.__do_completion:
 			if transitioned_after < 1:
-				if self.user_var.correction_go_ahead and self.laser_distance.dm90 < 0.2:
-					self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag()
+				if self.user_var.correction_go_ahead:
+					self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag()
 					self.__enter_sequence_c_autonomous_other_controls_extra_features_wall_alignment_too_close_on_right_default()
-					transitioned_after = 1
-				elif self.user_var.correction_go_ahead and self.laser_distance.d90 < 0.2:
-					self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag()
-					self.__enter_sequence_c_autonomous_other_controls_extra_features_wall_alignment_too_close_on_left_default()
 					transitioned_after = 1
 		return transitioned_after
 	
@@ -2290,6 +2397,20 @@ class Model:
 		return transitioned_after
 	
 	
+	def __c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag_react(self, transitioned_before):
+		"""Implementation of __c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag_react function.
+		"""
+		#The reactions of state Left_Wall_Alignment_Correction_Flag.
+		transitioned_after = transitioned_before
+		if not self.__do_completion:
+			if transitioned_after < 1:
+				if self.user_var.correction_go_ahead:
+					self.__exit_sequence_c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag()
+					self.__enter_sequence_c_autonomous_other_controls_extra_features_wall_alignment_too_close_on_left_default()
+					transitioned_after = 1
+		return transitioned_after
+	
+	
 	def __c_autonomous_other_controls_extra_features_r2_placeholder_react(self, transitioned_before):
 		"""Implementation of __c_autonomous_other_controls_extra_features_r2_placeholder_react function.
 		"""
@@ -2428,6 +2549,10 @@ class Model:
 			transitioned = self.__c_autonomous_main_auto_driving_move_forward_other_half_block_react(transitioned)
 		elif state == self.State.cautonomous_main_auto_driving_wait_for_correction:
 			transitioned = self.__c_autonomous_main_auto_driving_wait_for_correction_react(transitioned)
+		elif state == self.State.cautonomous_main_auto_driving_turn_option_1:
+			transitioned = self.__c_autonomous_main_auto_driving_turn_option_1_react(transitioned)
+		elif state == self.State.cautonomous_main_auto_driving_turn_option_2:
+			transitioned = self.__c_autonomous_main_auto_driving_turn_option_2_react(transitioned)
 		elif state == self.State.cwall_detection_r1stop:
 			transitioned = self.__c_wall_detection_r1_stop_react(transitioned)
 		elif state == self.State.cwall_detection_r1backup:
@@ -2438,8 +2563,8 @@ class Model:
 			state = self.__state_vector[1]
 			if state == self.State.cautonomous_other_controls_extra_features_wall_alignment_checking:
 				transitioned = self.__c_autonomous_other_controls_extra_features_wall_alignment_checking_react(transitioned)
-			elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag:
-				transitioned = self.__c_autonomous_other_controls_extra_features_wall_alignment_wall_alignment_correction_flag_react(transitioned)
+			elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag:
+				transitioned = self.__c_autonomous_other_controls_extra_features_wall_alignment_right_wall_alignment_correction_flag_react(transitioned)
 			elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_too_close_on_right:
 				transitioned = self.__c_autonomous_other_controls_extra_features_wall_alignment_too_close_on_right_react(transitioned)
 			elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_too_close_on_left:
@@ -2464,6 +2589,8 @@ class Model:
 				transitioned = self.__c_autonomous_other_controls_extra_features_wall_alignment_center_in_cube_2_react(transitioned)
 			elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_stop_turn_right:
 				transitioned = self.__c_autonomous_other_controls_extra_features_wall_alignment_c_autonomous_other_controls_extra_features_wall_alignment_stop_turn_right_react(transitioned)
+			elif state == self.State.cautonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag:
+				transitioned = self.__c_autonomous_other_controls_extra_features_wall_alignment_left_wall_alignment_correction_flag_react(transitioned)
 		if self.__state_conf_vector_position < 2:
 			state = self.__state_vector[2]
 			if state == self.State.cautonomous_other_controls_extra_features_r2placeholder:
