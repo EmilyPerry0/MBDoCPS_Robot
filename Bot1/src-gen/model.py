@@ -711,7 +711,7 @@ class Model:
 		self.__turn_start_yaw = self.imu.yaw
 		self.__total_turned = 0.0
 		self.__cmd_speed = 0.0
-		self.__cmd_rot = (self.user_var.base_rotation * 0.7)
+		self.__cmd_rot = self.user_var.base_rotation
 		
 	def __entry_action_turtle_bot_turtle_bot_autonomous_logic_explore_maze__region0_turn_right(self):
 		"""Entry action for state 'TurnRight'..
@@ -720,7 +720,7 @@ class Model:
 		self.__turn_start_yaw = self.imu.yaw
 		self.__total_turned = 0.0
 		self.__cmd_speed = 0.0
-		self.__cmd_rot = (-(self.user_var.base_rotation) * 0.7)
+		self.__cmd_rot = -(self.user_var.base_rotation)
 		
 	def __entry_action_turtle_bot_turtle_bot_autonomous_logic_explore_maze__region0_turn_around(self):
 		"""Entry action for state 'TurnAround'..
@@ -1516,7 +1516,7 @@ class Model:
 				self.__yaw_diff = (self.__yaw_diff - 360.0) if (self.__yaw_diff > 180.0) else self.__yaw_diff
 				self.__yaw_diff = (self.__yaw_diff + 360.0) if (self.__yaw_diff < -(180.0)) else self.__yaw_diff
 				self.__total_turned = self.__yaw_diff
-				self.__cmd_rot = ((self.user_var.base_rotation * 0.3) if (self.__yaw_diff > 80 or self.__yaw_diff < -(80)) else self.__cmd_rot)
+				self.__cmd_rot = ((self.user_var.base_rotation * 0.3) if (self.__yaw_diff > 75.0 or self.__yaw_diff < -(75.0)) else self.__cmd_rot)
 				transitioned_after = self.__turtle_bot_turtle_bot_autonomous_logic_explore_maze_react(transitioned_before)
 		return transitioned_after
 	
@@ -1540,7 +1540,7 @@ class Model:
 				self.__yaw_diff = (self.__yaw_diff - 360.0) if (self.__yaw_diff > 180.0) else self.__yaw_diff
 				self.__yaw_diff = (self.__yaw_diff + 360.0) if (self.__yaw_diff < -(180.0)) else self.__yaw_diff
 				self.__total_turned = self.__yaw_diff
-				self.__cmd_rot = ((-(self.user_var.base_rotation) * 0.3) if (self.__yaw_diff > 80 or self.__yaw_diff < -(80)) else self.__cmd_rot)
+				self.__cmd_rot = ((-(self.user_var.base_rotation) * 0.3) if (self.__yaw_diff > 75.0 or self.__yaw_diff < -(75.0)) else self.__cmd_rot)
 				transitioned_after = self.__turtle_bot_turtle_bot_autonomous_logic_explore_maze_react(transitioned_before)
 		return transitioned_after
 	
@@ -1552,7 +1552,7 @@ class Model:
 		transitioned_after = transitioned_before
 		if not self.__do_completion:
 			if transitioned_after < 1:
-				if self.__total_turned > 170.0 or self.__total_turned < -(170.0):
+				if self.__total_turned > 178.5 or self.__total_turned < -(178.5):
 					self.__exit_sequence_turtle_bot_turtle_bot_autonomous_logic_explore_maze__region0_turn_around()
 					self.__enter_sequence_turtle_bot_turtle_bot_autonomous_logic_explore_maze__region0_move_to_next_cell_default()
 					self.__turtle_bot_turtle_bot_autonomous_logic_explore_maze_react(1)
@@ -1564,6 +1564,7 @@ class Model:
 				self.__yaw_diff = (self.__yaw_diff - 360.0) if (self.__yaw_diff > 180.0) else self.__yaw_diff
 				self.__yaw_diff = (self.__yaw_diff + 360.0) if (self.__yaw_diff < -(180.0)) else self.__yaw_diff
 				self.__total_turned = self.__yaw_diff
+				self.__cmd_rot = ((self.user_var.base_rotation * 0.3) if (self.__yaw_diff > 165.0 or self.__yaw_diff < -(165.0)) else self.__cmd_rot)
 				transitioned_after = self.__turtle_bot_turtle_bot_autonomous_logic_explore_maze_react(transitioned_before)
 		return transitioned_after
 	
