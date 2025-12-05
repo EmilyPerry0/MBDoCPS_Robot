@@ -43,7 +43,7 @@ class Visualizer(object):
         # Plot the walls on the figure
         self.plot_walls()
 
-        fig.savefig("{}{}.png".format(self.media_filename, "_generation"))
+        fig.savefig("{}{}.png".format(self.media_filename, "_generation"), frameon=None)
 
 
 

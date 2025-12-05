@@ -17,6 +17,7 @@
 
 import sys, os, select
 import numpy as np
+from datetime import datetime
 
 from model import Model
 
@@ -34,6 +35,14 @@ from geometry_msgs.msg import Twist
 class SCTConnect():
 
     """
+    Write message to both console and log file
+    """
+    def log(self, message):
+        print(message, end='')
+        self.log_file.write(message)
+        self.log_file.flush()
+
+    """
     initialise class and main variables
     """
     def __init__(self):
@@ -43,6 +52,15 @@ class SCTConnect():
 
         # Initialize the statecharts
         self.sm = Model()
+        
+        # Debug tracking
+        self.previous_states = [None, None, None]
+        self.state_names = self._get_state_names()
+        
+        # Open log file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.log_file = open(f"turtlebot_log_{timestamp}.txt", "w")
+        self.log("=== TurtleBot Maze Exploration Log Started ===\n")
 
     """
     Setup the statemachine and the ROS 2 node
@@ -52,7 +70,9 @@ class SCTConnect():
         self.maze = Maze(self.sm.grid.max_col+1, self.sm.grid.max_row+1)
 
         self.sm.timer_service = Timer()
+        self.log("\n[DEBUG] Entering state machine...\n")
         self.sm.enter()
+        self._log_active_states()
 
         # Setup variables to be used that will not be changed by the statecharts
         self.degrees_list = [i for i in range(0,180)]
@@ -89,6 +109,7 @@ class SCTConnect():
             # Run a cycle of the statechart
             if(not self.parse_input()):
                 self.sm.run_cycle()
+                self._check_state_changes()
 
             # Reset input
             self.input = ''
@@ -104,41 +125,214 @@ class SCTConnect():
 
             # Publish the current speed and rotation from SCT
             # print("Velocity: ", self.sm.output.speed, self.sm.output.rotation)
-            self.node.vel_publish(x=self.sm.output.speed, rz = self.sm.output.rotation)
+            # Ensure float type for ROS2 message
+            self.node.vel_publish(x=float(self.sm.output.speed), rz=float(self.sm.output.rotation))
 
             # Print info
             os.system('clear')
-            print("========= TurtleBot Stats =========")
-            print(f"velocity: {self.sm.output.speed}")
-            print(f"rotation speed: {self.sm.output.rotation}")
-            print(f"yaw: {self.sm.imu.yaw:.3f}")
+            self.log("========= TurtleBot Stats =========\n")
+            self.log(f"velocity: {self.sm.output.speed}\n")
+            self.log(f"rotation speed: {self.sm.output.rotation}\n")
+            self.log(f"yaw: {self.sm.imu.yaw:.3f}\n")
+            
+            self.log("\n========= ACTIVE STATES =========\n")
+            self._print_active_states()
 
-            print("----------- Grid Info -----------")
-            print(f"orientation: {self.sm.grid.orientation}")
-            print(f"row: {self.sm.grid.row}")
-            print(f"col: {self.sm.grid.column}")
+            self.log("\n----------- Grid Info -----------\n")
+            self.log(f"orientation: {self.sm.grid.orientation}\n")
+            self.log(f"row: {self.sm.grid.row}\n")
+            self.log(f"col: {self.sm.grid.column}\n")
 
-            print(f"start pos:")
-            print(f"\tzero x: {self.sm.start_pos.zero_x:.2f}")
-            print(f"\tzero y: {self.sm.start_pos.zero_y:.2f}")
-            print(f"\tset zero: {self.sm.start_pos.set_zero}")
+            self.log(f"start pos:\n")
+            self.log(f"\tzero x: {self.sm.start_pos.zero_x:.2f}\n")
+            self.log(f"\tzero y: {self.sm.start_pos.zero_y:.2f}\n")
+            self.log(f"\tset zero: {self.sm.start_pos.set_zero}\n")
+            
+            # Print explored cells
+            self.log("----------- Explored Cells -----------\n")
+            explored_count = 0
+            explored_cells = []
+            for row in range(self.maze.grid_rows):
+                for col in range(self.maze.grid_cols):
+                    if self.maze.grid[row][col].visited:
+                        explored_count += 1
+                        explored_cells.append(f"({row},{col})")
+            self.log(f"Total explored: {explored_count}/{self.maze.grid_rows * self.maze.grid_cols}\n")
+            if explored_cells:
+                self.log(f"Cells: {', '.join(explored_cells)}\n")            
 
-            print("----------- Laser stuff -----------")
-            print(f"front mean:\t{self.sm.laser_distance.dfront_mean:.2f}")
-            print(f"left mean:\t{self.sm.laser_distance.dleft_mean:.2f}")
-            print(f"back mean:\t{self.sm.laser_distance.dback_mean:.2f}")
-            print(f"right mean:\t{self.sm.laser_distance.dright_mean:.2f}")
+            self.log("----------- Laser stuff -----------\n")
+            self.log(f"front mean:\t{self.sm.laser_distance.dfront_mean:.2f}\n")
+            self.log(f"left mean:\t{self.sm.laser_distance.dleft_mean:.2f}\n")
+            self.log(f"back mean:\t{self.sm.laser_distance.dback_mean:.2f}\n")
+            self.log(f"right mean:\t{self.sm.laser_distance.dright_mean:.2f}\n")
 
-            print("------------ Odometry -------------")
-            print(f"x: {self.sm.odom.x:.2f}")
-            print(f"y: {self.sm.odom.y:.2f}")
+            self.log("------------ Odometry -------------\n")
+            self.log(f"x: {self.sm.odom.x:.2f}\n")
+            self.log(f"y: {self.sm.odom.y:.2f}\n")
 
-            print("------------ Logging -------------")
-            print(f"visited: {self.sm.grid.visited:.2f}")
+            self.log("------------ Logging -------------\n")
+            self.log(f"visited: {self.sm.grid.visited:.2f}\n")
             print(f'Wall front: {self.sm.grid.wall_front}, right: {self.sm.grid.wall_right}, '
                     f'back: {self.sm.grid.wall_back}, left: {self.sm.grid.wall_left}')
+            
+            # Print internal maze storage from statechart
+            print(f'\n--- Internal Maze Storage (Bitwise) ---')
+            print(f'maze1 (cells 0-7):  {self.sm.grid.maze1:032b}')
+            print(f'maze2 (cells 8-15): {self.sm.grid.maze2:032b}')
+            print(f'visitedCells:       {self.sm.grid.visited_cells:016b}')
+            
+            # Decode and display current cell from internal storage
+            if self.sm.grid.row < self.maze.grid_rows and self.sm.grid.column < self.maze.grid_cols:
+                cell_idx = self.sm.grid.row * 4 + self.sm.grid.column
+                is_visited = (self.sm.grid.visited_cells >> cell_idx) & 1
+                
+                if cell_idx < 8:
+                    shift = cell_idx * 4
+                    wall_bits = (self.sm.grid.maze1 >> shift) & 15
+                else:
+                    shift = (cell_idx - 8) * 4
+                    wall_bits = (self.sm.grid.maze2 >> shift) & 15
+                
+                # Extract N, E, S, W from bits
+                wall_n = (wall_bits >> 3) & 1
+                wall_e = (wall_bits >> 2) & 1
+                wall_s = (wall_bits >> 1) & 1
+                wall_w = wall_bits & 1
+                
+                visited_marker = '✓' if is_visited else '✗'
+                print(f'Current cell ({self.sm.grid.row},{self.sm.grid.column}) visited:{visited_marker} walls [N,E,S,W]: [{wall_n},{wall_e},{wall_s},{wall_w}]')
+                wall_chars = ['█' if w == 1 else ' ' for w in [wall_n, wall_e, wall_s, wall_w]]
+                print(f'  {wall_chars[0]}  ')
+                print(f' {wall_chars[3]}@{wall_chars[1]} ')
+                print(f'  {wall_chars[2]}  ')
+            
+            # Print all stored walls from internal maze storage
+            self.log("\n--- Complete Wall Map (from internal storage) ---\n")
+            for row in range(self.maze.grid_rows):
+                for col in range(self.maze.grid_cols):
+                    cell_idx = row * 4 + col
+                    is_visited = (self.sm.grid.visited_cells >> cell_idx) & 1
+                    
+                    if cell_idx < 8:
+                        shift = cell_idx * 4
+                        wall_bits = (self.sm.grid.maze1 >> shift) & 15
+                    else:
+                        shift = (cell_idx - 8) * 4
+                        wall_bits = (self.sm.grid.maze2 >> shift) & 15
+                    
+                    # Extract walls
+                    wall_n = (wall_bits >> 3) & 1
+                    wall_e = (wall_bits >> 2) & 1
+                    wall_s = (wall_bits >> 1) & 1
+                    wall_w = wall_bits & 1
+                    
+                    # Show only visited cells with checkmark
+                    if is_visited:
+                        walls_str = f"[{wall_n},{wall_e},{wall_s},{wall_w}]"
+                        print(f"({row},{col}):✓{walls_str}  ", end="")
+                print()  # New line after each row
+            
+            # Print ASCII art of complete maze from statechart internal storage
+            self.log("\n--- ASCII Maze Map (from statechart memory) ---\n")
+            self.log(f"  Orientation: {['N','E','S','W'][self.sm.grid.orientation]}\n")
+            
+            # Helper function to extract wall data from maze1/maze2
+            def get_walls_from_memory(row, col):
+                """Extract walls for a cell from maze1/maze2 integers"""
+                cell_idx = row * 4 + col
+                is_visited = (self.sm.grid.visited_cells >> cell_idx) & 1
+                
+                if not is_visited:
+                    return None, False  # Not visited
+                
+                # Extract 4-bit wall data
+                if cell_idx < 8:
+                    temp_shift = cell_idx * 4
+                    wall_bits = (self.sm.grid.maze1 >> temp_shift) & 15
+                else:
+                    temp_shift = (cell_idx - 8) * 4
+                    wall_bits = (self.sm.grid.maze2 >> temp_shift) & 15
+                
+                # Decode: bit3=N, bit2=E, bit1=S, bit0=W
+                wall_n = (wall_bits >> 3) & 1
+                wall_e = (wall_bits >> 2) & 1
+                wall_s = (wall_bits >> 1) & 1
+                wall_w = wall_bits & 1
+                
+                return [wall_n, wall_e, wall_s, wall_w], True
+            
+            # Print top border of first row
+            for col in range(self.maze.grid_cols):
+                walls, visited = get_walls_from_memory(0, col)
+                if visited and walls[0] == 1:  # North wall
+                    self.log("+---")
+                else:
+                    self.log("+   ")
+            self.log("+\n")
+            
+            # Print each row
+            for row in range(self.maze.grid_rows):
+                # Print left walls and cell content
+                for col in range(self.maze.grid_cols):
+                    walls, visited = get_walls_from_memory(row, col)
+                    has_left_wall = False
+                    
+                    # Check this cell's West wall
+                    if visited and walls[3] == 1:
+                        has_left_wall = True
+                    
+                    # Check cell to the left's East wall
+                    if col > 0:
+                        walls_left, visited_left = get_walls_from_memory(row, col - 1)
+                        if visited_left and walls_left[1] == 1:
+                            has_left_wall = True
+                    
+                    if has_left_wall:
+                        self.log("|")
+                    else:
+                        self.log(" ")
+                    
+                    # Cell content
+                    if row == self.sm.grid.row and col == self.sm.grid.column:
+                        self.log(" @ ")
+                    elif visited:
+                        self.log(" X ")
+                    else:
+                        self.log("   ")
+                
+                # Print rightmost wall
+                walls, visited = get_walls_from_memory(row, self.maze.grid_cols - 1)
+                if visited and walls[1] == 1:  # East wall
+                    self.log("|\n")
+                else:
+                    self.log(" \n")
+                
+                # Print bottom border (check this row's South walls OR next row's North walls)
+                for col in range(self.maze.grid_cols):
+                    walls, visited = get_walls_from_memory(row, col)
+                    has_bottom_wall = False
+                    
+                    # Check this cell's South wall
+                    if visited and walls[2] == 1:
+                        has_bottom_wall = True
+                    
+                    # Check cell below's North wall (if not last row)
+                    if row < self.maze.grid_rows - 1:
+                        walls_below, visited_below = get_walls_from_memory(row + 1, col)
+                        if visited_below and walls_below[0] == 1:
+                            has_bottom_wall = True
+                    
+                    if has_bottom_wall:
+                        self.log("+---")
+                    else:
+                        self.log("+   ")
+                self.log("+\n")
+            
+            self._print_internal_variables()
 
         # Print the final values and finish
+        self.log("\n[DEBUG] State machine finished!\n")
         print("gems: ", self.sm.output.gems)
         print("obstacles: ", self.sm.output.obstacles)
         self.shutdown()
@@ -404,21 +598,27 @@ class SCTConnect():
     """
     def parse_input(self):
         if self.input == 'm':
+           self.log("[DEBUG-INPUT] Key 'm' pressed - Mode switch\n")
            self.sm.computer.raise_m_press()
            return True
         elif self.input == 'w':
+            self.log("[DEBUG-INPUT] Key 'w' pressed - Forward\n")
             self.sm.computer.raise_w_press()
             return True
         elif self.input == 'a':
+            self.log("[DEBUG-INPUT] Key 'a' pressed - Left\n")
             self.sm.computer.raise_a_press()
             return True
         elif self.input == 's':
+            self.log("[DEBUG-INPUT] Key 's' pressed - Backward\n")
             self.sm.computer.raise_s_press()
             return True
         elif self.input == 'd':
+            self.log("[DEBUG-INPUT] Key 'd' pressed - Right\n")
             self.sm.computer.raise_d_press()
             return True
         elif self.input == 'x':
+            self.log("[DEBUG-INPUT] Key 'x' pressed - Stop\n")
             self.sm.computer.raise_x_press()
             return True
         else:
@@ -492,11 +692,151 @@ class SCTConnect():
     def update_grid(self):
         self.sm.grid.update = False
         self.current_node = self.maze.grid[self.sm.grid.row][self.sm.grid.column]
+        
+        # Debug: Print what wall values are being stored
+        self.log(f"[DEBUG] update_grid() called at ({self.sm.grid.row},{self.sm.grid.column})\n")
+        self.log(f"[DEBUG] Orientation: {self.sm.grid.orientation}, Wall values: F={self.sm.grid.wall_front}, R={self.sm.grid.wall_right}, B={self.sm.grid.wall_back}, L={self.sm.grid.wall_left}\n")
+        
         self.current_node.walls[self.sm.grid.orientation] = self.sm.grid.wall_front
         self.current_node.walls[(self.sm.grid.orientation + 1) % 4] = self.sm.grid.wall_right
         self.current_node.walls[(self.sm.grid.orientation - 1) % 4] = self.sm.grid.wall_left
         self.current_node.walls[(self.sm.grid.orientation - 2) % 4] = self.sm.grid.wall_back
         self.current_node.visited = True
+        
+        self.log(f"[DEBUG] Stored walls array: {self.current_node.walls}\n")
+
+
+    """
+    Get state name mapping from Model.State enum
+    """
+    def _get_state_names(self):
+        state_map = {}
+        for attr_name in dir(Model.State):
+            if not attr_name.startswith('_'):
+                attr_value = getattr(Model.State, attr_name)
+                if isinstance(attr_value, int):
+                    # Clean up state name for readability
+                    clean_name = attr_name.replace('turtle_bot_turtle_bot_', '').replace('_region0', '').replace('_', ' ').title()
+                    state_map[attr_value] = clean_name
+        return state_map
+
+    """
+    Log currently active states
+    """
+    def _log_active_states(self):
+        active = []
+        state_vector = self.sm._Model__state_vector
+        for i, state_id in enumerate(state_vector):
+            if state_id != Model.State.null_state:
+                state_name = self.state_names.get(state_id, f"State_{state_id}")
+                active.append(f"[{i}] {state_name}")
+        
+        if active:
+            self.log(f"[DEBUG] Active states: {', '.join(active)}\n")
+    
+    """
+    Print currently active states to display
+    """
+    def _print_active_states(self):
+        state_vector = self.sm._Model__state_vector
+        for i, state_id in enumerate(state_vector):
+            if state_id != Model.State.null_state:
+                state_name = self.state_names.get(state_id, f"State_{state_id}")
+                self.log(f"Region {i}: {state_name}\n")
+                
+                # Add helpful hints for specific states
+                if state_id == Model.State.turtle_bot_turtle_bot_autonomous_logic_calibrate_region0wait_for_key:
+                    self.log(f"           ⚠️  PRESS 's' KEY TO START CALIBRATION ⚠️\n")
+                elif state_id == Model.State.turtle_bot_turtle_bot_mode_and_keyboard_manual:
+                    self.log(f"           💡 Press 'm' to switch to Autonomous mode\n")
+                    self.log(f"           💡 Use w/a/s/d keys to move, x to stop\n")
+                elif state_id == Model.State.turtle_bot_turtle_bot_mode_and_keyboard_autonomous:
+                    self.log(f"           💡 Press 'm' to switch to Manual mode\n")
+            else:
+                self.log(f"Region {i}: <inactive>\n")
+    
+    """
+    Check for state changes and log them
+    """
+    def _check_state_changes(self):
+        state_vector = self.sm._Model__state_vector
+        for i in range(len(state_vector)):
+            if state_vector[i] != self.previous_states[i]:
+                # State changed in region i
+                old_state = self.previous_states[i]
+                new_state = state_vector[i]
+                
+                if old_state != Model.State.null_state and old_state is not None:
+                    old_name = self.state_names.get(old_state, f"State_{old_state}")
+                    self.log(f"[DEBUG] Region {i} EXIT: {old_name}\n")
+                
+                if new_state != Model.State.null_state:
+                    new_name = self.state_names.get(new_state, f"State_{new_state}")
+                    self.log(f"[DEBUG] Region {i} ENTER: {new_name}\n")
+                
+                self.previous_states[i] = new_state
+    
+    """
+    Print internal state machine variables
+    """
+    def _print_internal_variables(self):
+        self.log("\\n------ Internal Variables ------\n")
+        self.log(f"dist_free: {self.sm._Model__dist_free:.3f}\n")
+        self.log(f"is_manual: {self.sm._Model__is_manual}\n")
+        self.log(f"autonomous_active: {self.sm._Model__autonomous_active}\n")
+        self.log(f"left_free: {self.sm._Model__left_free}\n")
+        self.log(f"front_free: {self.sm._Model__front_free}\n")
+        self.log(f"right_free: {self.sm._Model__right_free}\n")
+        self.log(f"back_free: {self.sm._Model__back_free}\n")
+        self.log(f"exploring_done: {self.sm._Model__exploring_done}\n")
+        
+        self.log("\\n--- Navigation ---\n")
+        self.log(f"cmd_speed: {self.sm._Model__cmd_speed:.3f} m/s\n")
+        self.log(f"cmd_rot: {self.sm._Model__cmd_rot:.3f} rad/s\n")
+        self.log(f"Final output - v: {self.sm._Model__v:.3f} m/s, w: {self.sm._Model__w:.3f} rad/s\n")
+        
+        self.log("\\n--- Alignment Debug ---\n")
+        self.log(f"targetYaw: {self.sm._Model__target_yaw:.3f}°\n")
+        self.log(f"yawError: {self.sm._Model__yaw_error:.3f}°\n")
+        self.log(f"isWellAligned: {self.sm._Model__is_well_aligned}\n")
+        
+        self.log("\\n--- Timer Debug ---\n")
+        self.log(f"Timer events array: {self.sm._Model__time_events}\n")
+        self.log(f"Timer service active: {self.sm.timer_service is not None}\n")
+        
+        self.log("\\n--- Transition Conditions Debug ---\n")
+        self.log(f"autonomousActive: {self.sm._Model__autonomous_active}\n")
+        self.log(f"exploringDone: {self.sm._Model__exploring_done}\n")
+        self.log(f"Condition for Goto (timer1): autonomousActive={self.sm._Model__autonomous_active} AND exploringDone={self.sm._Model__exploring_done} AND isWellAligned={self.sm._Model__is_well_aligned}\n")
+        self.log(f"  -> Result: {self.sm._Model__autonomous_active and self.sm._Model__exploring_done and self.sm._Model__is_well_aligned}\n")
+        self.log(f"Condition for Explore (timer2): autonomousActive={self.sm._Model__autonomous_active} AND NOT exploringDone={not self.sm._Model__exploring_done} AND isWellAligned={self.sm._Model__is_well_aligned}\n")
+        self.log(f"  -> Result: {self.sm._Model__autonomous_active and not self.sm._Model__exploring_done and self.sm._Model__is_well_aligned}\n")
+        
+        self.log("\\n--- Command Variables ---\n")
+        self.log(f"cmdSpeed: {self.sm._Model__cmd_speed}\n")
+        self.log(f"cmdRot: {self.sm._Model__cmd_rot}\n")
+        self.log(f"v (computed): {self.sm._Model__v}\n")
+        self.log(f"w (computed): {self.sm._Model__w}\n")
+        
+        self.log("\\n--- Wall Centering Debug ---\n")
+        self.log(f"isNorthSouth: {self.sm._Model__is_north_south}\n")
+        self.log(f"wallError: {self.sm._Model__wall_error:.3f}\n")
+        self.log(f"wallsVisible: {self.sm._Model__walls_visible}\n")
+        self.log(f"tooCloseInDirection: {self.sm._Model__too_close_in_direction}\n")
+        
+        self.log("\\n--- State Machine Status ---\n")
+        self.log(f"State vector: {self.sm._Model__state_vector}\n")
+        self.log(f"Is active: {self.sm.is_active()}\n")
+        self.log(f"AtCellCenter active: {self.sm.is_state_active(Model.State.turtle_bot_turtle_bot_autonomous_logic_explore_maze_region0at_cell_center)}\n")
+        self.log(f"Explore active: {self.sm.is_state_active(Model.State.turtle_bot_turtle_bot_autonomous_logic_explore_maze_region0explore)}\n")
+        self.log(f"Drive active: {self.sm.is_state_active(Model.State.turtle_bot_turtle_bot_zdrive)}\n")
+        self.log(f"Stopped active: {self.sm.is_state_active(Model.State.turtle_bot_turtle_bot_zstopped)}\n")
+        
+        self.log("\\n--- Internal Flags ---\n")
+        self.log(f"beenAtStartOnce: {self.sm._Model__been_at_start_once}\n")
+        self.log(f"completed: {self.sm._Model__completed}\n")
+        self.log(f"do_completion: {self.sm._Model__do_completion}\n")
+        
         self.sm.grid.visited = True
 
 """
@@ -509,3 +849,6 @@ if __name__ == "__main__":
         states.run()
     except KeyboardInterrupt:
         states.shutdown()
+    finally:
+        states.log("\n=== Log file closed ===\n")
+        states.log_file.close()
